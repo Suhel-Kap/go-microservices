@@ -1,10 +1,23 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/suhel-kap/toolbox"
 )
+
+type AuthPayload struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type RequestPayload struct {
+	Action string      `json:"action"`
+	Auth   AuthPayload `json:"auth,omitempty"`
+}
 
 func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 	tools := toolbox.Tools{}
@@ -15,4 +28,75 @@ func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = tools.WriteJSON(w, http.StatusOK, payload)
+}
+
+func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
+	var requestPayload RequestPayload
+	tools := toolbox.Tools{}
+
+	err := tools.ReadJSON(w, r, &requestPayload)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	switch requestPayload.Action {
+	case "auth":
+		app.Authenticate(w, requestPayload.Auth)
+	default:
+		tools.ErrorJSON(w, errors.New("unknown action"), http.StatusBadRequest)
+	}
+}
+
+func (app *Config) Authenticate(w http.ResponseWriter, a AuthPayload) {
+	tools := toolbox.Tools{}
+
+	// create some json we'll send to the auth microservice
+	jsonData, _ := json.MarshalIndent(a, "", "\t")
+
+	// call the service
+	request, err := http.NewRequest("POST", "http://authentication-service/authenticate", bytes.NewBuffer(jsonData))
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	defer response.Body.Close()
+
+	// make sure we get back the correct status code
+	if response.StatusCode == http.StatusUnauthorized {
+		tools.ErrorJSON(w, errors.New("invalid credentials"), http.StatusBadRequest)
+		return
+	} else if response.StatusCode != http.StatusAccepted {
+		tools.ErrorJSON(w, errors.New("unknown error"), http.StatusBadRequest)
+		return
+	}
+
+	// create a var we will read the response into
+	var jsonFromService toolbox.JsonResponse
+
+	// decode the json from the auth service
+	err = json.NewDecoder(response.Body).Decode(&jsonFromService)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	if jsonFromService.Error {
+		tools.ErrorJSON(w, errors.New(jsonFromService.Message), http.StatusUnauthorized)
+		return
+	}
+
+	var payload toolbox.JsonResponse
+	payload.Error = false
+	payload.Message = "Authenticated!"
+	payload.Data = jsonFromService.Data
+
+	tools.WriteJSON(w, http.StatusAccepted, payload)
 }
