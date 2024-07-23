@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	ampq "github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/suhel-kap/listener-service/event"
 )
 
@@ -36,14 +36,14 @@ func main() {
 	}
 }
 
-func connect() (*ampq.Connection, error) {
+func connect() (*amqp.Connection, error) {
 	var counts int64
 	var backOff = 1 * time.Second
-	var connection *ampq.Connection
+	var connection *amqp.Connection
 
 	// dont continue until rabit is ready
 	for {
-		c, err := ampq.Dial("amqp://guest:guest@rabbitmq:5672")
+		c, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672")
 		if err != nil {
 			fmt.Println("Failed to connect to RabbitMQ")
 			time.Sleep(backOff)

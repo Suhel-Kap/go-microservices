@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/suhel-kap/broker/event"
 	"github.com/suhel-kap/toolbox"
 )
 
@@ -57,13 +58,52 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	case "auth":
 		app.authenticate(w, requestPayload.Auth)
 	case "log":
-		app.logItem(w, requestPayload.Log)
+		app.logEventWithRabbit(w, requestPayload.Log)
 	case "mail":
 		app.sendMail(w, requestPayload.Mail)
 	default:
 		tools.ErrorJSON(w, errors.New("unknown action"), http.StatusBadRequest)
 	}
 }
+
+////////////////////////RABBITMQ WAY TO COMMUNICATE////////////////////////
+
+func (app *Config) logEventWithRabbit(w http.ResponseWriter, l LogPayload) {
+	err := app.pushToQueue(l.Name, l.Data)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	var payload = toolbox.JsonResponse{
+		Error:   false,
+		Message: "Log event sent to RabbitMQ",
+	}
+
+	tools.WriteJSON(w, http.StatusOK, payload)
+}
+
+func (app *Config) pushToQueue(name, msg string) error {
+	emitter, err := event.NewEventEmitter(app.Rabbit)
+	if err != nil {
+		return err
+	}
+
+	payload := LogPayload{
+		Name: name,
+		Data: msg,
+	}
+
+	j, _ := json.MarshalIndent(&payload, "", "\t")
+	err = emitter.Push(string(j), "log.INFO")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+////////////////////////JSON WAY TO COMMUNICATE////////////////////////
 
 func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 	// create some json we'll send to the auth microservice

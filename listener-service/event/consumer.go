@@ -59,10 +59,6 @@ func (consumer *Consumer) Listen(topics []string) error {
 
 	for _, s := range topics {
 		ch.QueueBind(q.Name, s, "logs_topic", false, nil)
-
-		if err != nil {
-			return err
-		}
 	}
 
 	messages, err := ch.Consume(q.Name, "", true, false, false, false, nil)
@@ -91,7 +87,7 @@ func handlePayload(p Payload) {
 	fmt.Println("Received message", p)
 
 	switch p.Name {
-	case "log", "event":
+	case "info", "log", "event":
 		err := logEvent(p)
 		if err != nil {
 			log.Println("Failed to log event", err)
