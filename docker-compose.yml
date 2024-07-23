@@ -54,6 +54,15 @@ services:
       MAIL_FROM_NAME: "Mailer Service"
       MAIL_FROM_ADDRESS: "mailer@localhost"
 
+  listener-service:
+    build:
+      context: ./listener-service
+      dockerfile: Dockerfile
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+
   postgres:
     image: "postgres:14.2"
     ports:
