@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"log-service/data"
 	"net/http"
 
@@ -13,6 +14,7 @@ type JsonPayload struct {
 }
 
 func (app *Config) WriteLog(w http.ResponseWriter, r *http.Request) {
+	log.Println("WriteLog requested")
 	tools := toolbox.Tools{}
 
 	// read json into var
@@ -25,8 +27,12 @@ func (app *Config) WriteLog(w http.ResponseWriter, r *http.Request) {
 		Data: requestPayload.Data,
 	}
 
+	log.Printf("Inserting log entry: %v", event)
+
 	err := app.Models.LogEntry.Insert(event)
 	if err != nil {
+		log.Println("Error inserting log entry")
+		log.Println(err)
 		tools.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
@@ -36,5 +42,8 @@ func (app *Config) WriteLog(w http.ResponseWriter, r *http.Request) {
 		Message: "logged",
 	}
 
+	log.Println("WriteLog completed")
+
 	tools.WriteJSON(w, http.StatusAccepted, resp)
+	log.Println("WriteLog response sent")
 }

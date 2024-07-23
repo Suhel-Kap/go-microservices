@@ -14,14 +14,20 @@ type AuthPayload struct {
 	Password string `json:"password"`
 }
 
+type LogPayload struct {
+	Name string `json:"name"`
+	Data string `json:"data"`
+}
+
 type RequestPayload struct {
 	Action string      `json:"action"`
 	Auth   AuthPayload `json:"auth,omitempty"`
+	Log    LogPayload  `json:"log,omitempty"`
 }
 
-func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
-	tools := toolbox.Tools{}
+var tools = toolbox.Tools{}
 
+func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 	payload := toolbox.JsonResponse{
 		Error:   false,
 		Message: "Broker service is running",
@@ -32,7 +38,6 @@ func (app *Config) Broker(w http.ResponseWriter, r *http.Request) {
 
 func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	var requestPayload RequestPayload
-	tools := toolbox.Tools{}
 
 	err := tools.ReadJSON(w, r, &requestPayload)
 	if err != nil {
@@ -42,15 +47,15 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 
 	switch requestPayload.Action {
 	case "auth":
-		app.Authenticate(w, requestPayload.Auth)
+		app.authenticate(w, requestPayload.Auth)
+	case "log":
+		app.logItem(w, requestPayload.Log)
 	default:
 		tools.ErrorJSON(w, errors.New("unknown action"), http.StatusBadRequest)
 	}
 }
 
-func (app *Config) Authenticate(w http.ResponseWriter, a AuthPayload) {
-	tools := toolbox.Tools{}
-
+func (app *Config) authenticate(w http.ResponseWriter, a AuthPayload) {
 	// create some json we'll send to the auth microservice
 	jsonData, _ := json.MarshalIndent(a, "", "\t")
 
@@ -99,4 +104,41 @@ func (app *Config) Authenticate(w http.ResponseWriter, a AuthPayload) {
 	payload.Data = jsonFromService.Data
 
 	tools.WriteJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) logItem(w http.ResponseWriter, entry LogPayload) {
+	jsonData, err := json.MarshalIndent(entry, "", "\t")
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+    logServiceUrl := "http://logger-service/log"
+
+    request, err := http.NewRequest("POST", logServiceUrl, bytes.NewBuffer(jsonData))
+    if err != nil {
+    	tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusAccepted {
+		tools.ErrorJSON(w, errors.New("unknown error"), http.StatusBadRequest)
+		return
+	}
+
+	var jsonFromService toolbox.JsonResponse
+	jsonFromService.Error = false
+	jsonFromService.Message = "Logged!"
+
+	tools.WriteJSON(w, http.StatusAccepted, jsonFromService)
 }

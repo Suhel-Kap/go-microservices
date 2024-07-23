@@ -15,7 +15,7 @@ import (
 const (
 	WEB_PORT  = "80"
 	RPC_PORT  = "5001"
-	MONGO_URL = "mongodb://mongo:27017"
+	MONGO_URL = "mongodb://mongo:27017/?authSource=admin"
 	GRPC_PORT = "50001"
 )
 
@@ -65,7 +65,7 @@ func connectToMongo() (*mongo.Client, error) {
 	// create the connection options
 	clientOptions := options.Client().ApplyURI(MONGO_URL)
 	clientOptions.SetAuth(options.Credential{
-		Username: "admin",
+		Username: "root",
 		Password: "password",
 	})
 

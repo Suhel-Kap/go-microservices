@@ -42,6 +42,7 @@ func (l *LogEntry) Insert(entry LogEntry) error {
 		UpdatedAt: time.Now(),
 	})
 	if err != nil {
+		log.Println(err)
 		log.Println("Error inserting log entry")
 		return err
 	}
