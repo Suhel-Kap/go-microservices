@@ -77,3 +77,9 @@ proto_log:
 	@echo "Generating proto file for logger service..."
 	cd ./logger-service/logs && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative logs.proto
 	@echo "Done!"
+
+## proto_log_broker: generates the proto file for the broker service
+proto_log_broker:
+	@echo "Generating proto file for broker service..."
+	cd ./broker-service/logs && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative logs.proto
+	@echo "Done!"

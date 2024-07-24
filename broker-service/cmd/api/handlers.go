@@ -2,13 +2,18 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/rpc"
+	"time"
 
 	"github.com/suhel-kap/broker/event"
+	"github.com/suhel-kap/broker/logs"
 	"github.com/suhel-kap/toolbox"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type AuthPayload struct {
@@ -65,6 +70,47 @@ func (app *Config) HandleSubmission(w http.ResponseWriter, r *http.Request) {
 	default:
 		tools.ErrorJSON(w, errors.New("unknown action"), http.StatusBadRequest)
 	}
+}
+
+////////////////////////GRPC WAY TO COMMUNICATE////////////////////////
+
+func (app *Config) LogEventWithGRPC(w http.ResponseWriter, r *http.Request) {
+	var requestPayload RequestPayload
+
+	err := tools.ReadJSON(w, r, &requestPayload)
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	conn, err := grpc.NewClient("logger-service:50001", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
+	defer conn.Close()
+
+	c := logs.NewLogServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err = c.WriteLog(ctx, &logs.LogRequest{
+		LogEntry: &logs.Log{
+			Name: requestPayload.Log.Name,
+			Data: requestPayload.Log.Data,
+		},
+	})
+	if err != nil {
+		tools.ErrorJSON(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	var payload = toolbox.JsonResponse{
+		Error:   false,
+		Message: "Log has been written with gRPC",
+	}
+
+	tools.WriteJSON(w, http.StatusOK, payload)
 }
 
 ////////////////////////RPC WAY TO COMMUNICATE////////////////////////
