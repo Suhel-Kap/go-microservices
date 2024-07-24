@@ -71,3 +71,9 @@ stop:
 	@echo "Stopping front end..."
 	@-pkill -SIGTERM -f "./${FRONT_END_BINARY}"
 	@echo "Stopped front end!"
+
+## proto_log: generates the proto file for the logger service
+proto_log:
+	@echo "Generating proto file for logger service..."
+	cd ./logger-service/logs && protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative logs.proto
+	@echo "Done!"
