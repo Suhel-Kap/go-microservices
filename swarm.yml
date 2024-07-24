@@ -1,10 +1,28 @@
 version: "3"
 
 services:
-  broker-service:
-    image: "suhelkapadia/broker-service:1.0.0"
+  caddy:
+    image: "suhelkapadia/micro-caddy:1.0.0"
+    deploy:
+      mode: replicated
+      replicas: 1
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+  frontend:
+    image: "suhelkapadia/frontend:1.0.5"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      BROKER_URL: "http://backend"
+
+  broker-service:
+    image: "suhelkapadia/broker-service:1.0.1"
     deploy:
       mode: replicated
       replicas: 1
@@ -26,7 +44,7 @@ services:
       DSN: "host=postgres port=5432 user=postgres password=password dbname=users sslmode=disable timezone=UTC connect_timeout=5"
 
   logger-service:
-    image: "suhelkapadia/logger-service:1.0.0"
+    image: "suhelkapadia/logger-service:1.0.1"
     deploy:
       mode: replicated
       replicas: 1
@@ -75,7 +93,6 @@ services:
     image: "postgres:14.2"
     ports:
       - "5432:5432"
-    restart: always
     deploy:
       mode: replicated
       replicas: 1
@@ -85,3 +102,8 @@ services:
       POSTGRES_DB: users
     volumes:
       - ./db-data/postgres/:/var/lib/postgresql/data/
+
+volumes:
+  caddy_data:
+    external: true
+  caddy_config:
